@@ -1,32 +1,26 @@
 import sublime, sublime_plugin
-import copy # needed for deepcopy with layouts
-
-# SideBar SublimeText Controller
-# Thanks to the following resources:
-#	https://github.com/SublimeText/Origami
-#	http://www.sublimetext.com/forum/viewtopic.php?f=6&t=7284
-#	http://www.asciiflow.com/#Draw7061136993147687848
+import copy
 
 class Layout(object):
-	def __init__(self, layout, width, btype):
+	def __init__(self, layout, width, bar_type):
 		self.cells = layout["cells"]
 		self.cols  = layout["cols"]
 		self.rows  = layout["rows"]
 
-		self.sidebarIndex = None
+		self.sidebar_index = None
 
-		self.btype = btype
+		self.bar_type = bar_type
 
 		self.width = width
 
 		self.originalLayout = copy.deepcopy(layout)
 
 	def add_sidebar(self, name = "Information"):
-		self.sidebarIndex = len(self.cells)
-		if self.btype == "VERTICAL":
+		self.sidebar_index = len(self.cells)
+		if self.bar_type == "VERTICAL":
 			self.cols.insert(-1,self.width)
 			self.cells.append([len(self.cols)-2,0,len(self.cols)-1,len(self.rows)-1])
-		if self.btype == "HORIZONTAL":
+		if self.bar_type == "HORIZONTAL":
 			self.rows.insert(-1,self.width)
 			self.cells.append([0,len(self.rows)-2,len(self.cols)-1, len(self.rows)-1])
 
@@ -39,6 +33,9 @@ class TextEntry(object):
 		self.title  = title
 		self.region = region
 	def adjust(self, amount, regionObject):
+		"""
+		Utility function to adjust regions when text is removed from the sidebar.
+		"""
 		self.region = regionObject(self.region.a - amount, self.region.b - amount)
 
 
@@ -51,10 +48,10 @@ class SidebarController(object):
 
 		self.element_delimiter = element_delimiter
 
-		self.originalViewIndex = self.window.get_view_index(self.view)[1]
+		self.original_view_index = self.window.get_view_index(self.view)[1]
 
-		self.bufferPointer = 0
-		self.sidebarWidth  = 0
+		self.buffer_pointer = 0
+		self.sidebar_width  = 0
 
 		self.elements = []
 
@@ -63,12 +60,12 @@ class SidebarController(object):
 		self.layout.add_sidebar()
 		self.window.set_layout(self.layout.get_layout())
 
-		self.focusCall(self.createFile, name)
-		self.focusCall(self.fixSettings)
-		self.fixSettings()
+		self.focus_call(self.create_file, name)
+		self.focus_call(self.fix_settings)
+		self.fix_settings()
 
-	def fixSettings(self):
-		settings = self.sidebarView.settings()
+	def fix_settings(self):
+		settings = self.sidebar_view.settings()
 
 		settingsToSetFalse = ["line_numbers","gutter","draw_indent_guides"]
 		for item in settingsToSetFalse:
@@ -76,47 +73,47 @@ class SidebarController(object):
 
 		self.window.run_command("toggle_minimap");
 
-	def createFile(self, *args):
-		self.sidebarView = self.window.new_file()
-		self.sidebarView.set_name(args[0])
-		self.sidebarWidth = int(self.sidebarView.viewport_extent()[0]/self.sidebarView.em_width())
+	def create_file(self, *args):
+		self.sidebar_view = self.window.new_file()
+		self.sidebar_view.set_name(args[0])
+		self.sidebar_width = int(self.sidebar_view.viewport_extent()[0]/self.sidebar_view.em_width())
 
-	def closeSidebar(self):
-		dummyAllElement = TextEntry("","",sublime.Region(0,self.bufferPointer))
+	def close_sidebar(self):
+		dummyAllElement = TextEntry("","",sublime.Region(0,self.buffer_pointer))
 		self.delete(dummyAllElement, force=True)
 		self.window.run_command("close");
 
-	def focusCall(self, callback, *args):
-		self.window.focus_group(self.layout.sidebarIndex)
+	def focus_call(self, callback, *args):
+		self.window.focus_group(self.layout.sidebar_index)
 		if args:
 			callback(*args)
 		else:
 			callback()
-		self.window.focus_group(self.originalViewIndex)
+		self.window.focus_group(self.original_view_index)
 
 
 	def add(self, title=None, text=None):
 		if not text: return None
 
-		self.sidebarView.set_read_only(False)
+		self.sidebar_view.set_read_only(False)
 
-		startBuffer = self.bufferPointer
+		start_buffer = self.buffer_pointer
 
 		total = ""
 
-		total += self.element_delimiter*self.sidebarWidth + "\n"
+		total += self.element_delimiter*self.sidebar_width + "\n"
 		if title:
-			total += " " * ((self.sidebarWidth-len(title))/2) + title + "\n"
-			total += self.element_delimiter*self.sidebarWidth + "\n"
+			total += " " * ((self.sidebar_width-len(title))/2) + title + "\n"
+			total += self.element_delimiter*self.sidebar_width + "\n"
 		total += text + "\n\n\n"
 
-		edit = self.sidebarView.begin_edit()
-		self.bufferPointer += self.sidebarView.insert(edit, self.bufferPointer, total)
-		self.sidebarView.end_edit(edit)
+		edit = self.sidebar_view.begin_edit()
+		self.buffer_pointer += self.sidebar_view.insert(edit, self.buffer_pointer, total)
+		self.sidebar_view.end_edit(edit)
 
-		self.sidebarView.set_read_only(True)
+		self.sidebar_view.set_read_only(True)
 
-		textElement =  TextEntry(text, title, sublime.Region(startBuffer, self.bufferPointer))
+		textElement =  TextEntry(text, title, sublime.Region(start_buffer, self.buffer_pointer))
 
 		self.elements.append(textElement)
 
@@ -126,26 +123,26 @@ class SidebarController(object):
 		if element not in self.elements and not force:
 			return
 
-		self.sidebarView.set_read_only(False)
+		self.sidebar_view.set_read_only(False)
 
-		edit = self.sidebarView.begin_edit()
-		self.sidebarView.erase(edit, element.region)
-		self.bufferPointer -= element.region.size()
-		self.sidebarView.end_edit(edit)
+		edit = self.sidebar_view.begin_edit()
+		self.sidebar_view.erase(edit, element.region)
+		self.buffer_pointer -= element.region.size()
+		self.sidebar_view.end_edit(edit)
 
-		self.sidebarView.set_read_only(True)
+		self.sidebar_view.set_read_only(True)
 
 		if not force:
-			self.adjustElements(self.elements.index(element), element.region.size())
+			self.adjust_elements(self.elements.index(element), element.region.size())
 			self.elements.remove(element)
 
-	def adjustElements(self, midpoint, amount):
+	def adjust_elements(self, midpoint, amount):
 		for element in self.elements[midpoint:]:
 			element.adjust(amount, sublime.Region)
 
 
 	def destroy(self):
-		self.focusCall(self.closeSidebar)
+		self.focus_call(self.close_sidebar)
 		self.window.set_layout(self.layout.originalLayout)
 
 class SideBarCommand(sublime_plugin.WindowCommand, sublime.View):
