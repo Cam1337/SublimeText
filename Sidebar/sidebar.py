@@ -2,6 +2,9 @@ import sublime, sublime_plugin
 import copy
 
 class Layout(object):
+	"""
+	Object class for controlling the layout.
+	"""
 	def __init__(self, layout, width, bar_type):
 		self.cells = layout["cells"]
 		self.cols  = layout["cols"]
@@ -16,6 +19,10 @@ class Layout(object):
 		self.originalLayout = copy.deepcopy(layout)
 
 	def add_sidebar(self, name = "Information"):
+		"""
+		Add new cell to existing layout.
+		Cell format: [x_0, y_0, x_1, y_1] (whole integers)
+		"""
 		self.sidebar_index = len(self.cells)
 		if self.bar_type == "VERTICAL":
 			self.cols.insert(-1,self.width)
@@ -23,18 +30,25 @@ class Layout(object):
 		if self.bar_type == "HORIZONTAL":
 			self.rows.insert(-1,self.width)
 			self.cells.append([0,len(self.rows)-2,len(self.cols)-1, len(self.rows)-1])
+		return self.sidebar_index
 
 	def get_layout(self):
+		"""
+		Current layout (equal to self.window.get_layout())
+		"""
 		return {"cols": self.cols, "rows": self.rows, "cells": self.cells}
 
 class TextEntry(object):
+	"""
+	Object class for encapsulating specific text added to the sidebar
+	"""
 	def __init__(self, text, title, region):
 		self.text   = text
 		self.title  = title
 		self.region = region
 	def adjust(self, amount, regionObject):
 		"""
-		Utility function to adjust regions when text is removed from the sidebar.
+		Utility function to adjust regions when text is removed from the sidebar's view.
 		"""
 		self.region = regionObject(self.region.a - amount, self.region.b - amount)
 
@@ -126,8 +140,10 @@ class SidebarController(object):
 		self.sidebar_view.set_read_only(False)
 
 		edit = self.sidebar_view.begin_edit()
+
 		self.sidebar_view.erase(edit, element.region)
 		self.buffer_pointer -= element.region.size()
+
 		self.sidebar_view.end_edit(edit)
 
 		self.sidebar_view.set_read_only(True)
